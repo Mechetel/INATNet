@@ -41,10 +41,10 @@ trainer = Trainer(model, config, experiment_name="experiment_001")
 # 4. Setup data
 data_manager = DataManager(config)
 train_loader, val_loader = data_manager.create_dataloaders(
-    train_cover_dir="data/custom/train/cover",
-    train_stego_dir="data/custom/train/stego",
-    val_cover_dir="data/custom/val/cover",
-    val_stego_dir="data/custom/val/stego"
+    train_cover_dir="data/custom_big/train/cover",
+    train_stego_dir="data/custom_big/train/stego",
+    val_cover_dir="data/custom_big/val/cover",
+    val_stego_dir="data/custom_big/val/stego"
 )
 
 # 5. Train
@@ -52,10 +52,10 @@ trainer.fit(train_loader, val_loader)
 
 # 6. Inference
 inference_engine = InferenceEngine(model, config)
-prediction, probabilities = inference_engine.predict_single("stego_image.png")
+prediction, probabilities = inference_engine.predict_single("images/stego_image.png")
 print(f"Prediction: {'Stego' if prediction == 1 else 'Cover'}")
 print(f"Probabilities: {probabilities}")
 
-prediction, probabilities = inference_engine.predict_single("cover_image.png")
+prediction, probabilities = inference_engine.predict_single("images/cover_image.png")
 print(f"Prediction: {'Stego' if prediction == 1 else 'Cover'}")
 print(f"Probabilities: {probabilities}")
