@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steganalysis Network Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .network-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-x: auto;
+            padding: 20px 0;
+        }
+        
+        .stage {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border-left: 5px solid #4299e1;
+            transition: all 0.3s ease;
+        }
+        
+        .stage:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .stage-label {
+            min-width: 150px;
+            font-weight: bold;
+            color: #2d3748;
+            font-size: 1.1em;
+        }
+        
+        .blocks {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            flex: 1;
+        }
+        
+        .block {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-width: 120px;
+            transition: transform 0.2s ease;
+        }
+        
+        .block:hover {
+            transform: scale(1.05);
+        }
+        
+        .block-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .block-detail {
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+        
+        .preprocessing { background: #fef5e7; color: #7d6608; border: 2px solid #f9e79f; }
+        .conv { background: #e8f4f8; color: #0c5460; border: 2px solid #bee5eb; }
+        .residual { background: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+        .pool { background: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+        .attention { background: #fff3cd; color: #856404; border: 2px solid #ffeeba; }
+        .inception { background: #e7e7ff; color: #383d99; border: 3px solid #b8b8ff; }
+        .classifier { background: #d1ecf1; color: #0c5460; border: 2px solid #bee5eb; }
+        
+        .arrow {
+            font-size: 2em;
+            color: #4299e1;
+            align-self: center;
+        }
+        
+        .inception-detail {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f0f0ff;
+            border-radius: 12px;
+            border: 3px solid #b8b8ff;
+        }
+        
+        .inception-branch {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .inception-branch h4 {
+            color: #383d99;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        
+        .inception-branch ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .inception-branch li {
+            padding: 5px 0;
+            color: #4a5568;
+            font-size: 0.9em;
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .feature-map {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85em;
+            color: #4a5568;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Advanced Steganalysis Network Architecture</h1>
+        <p class="subtitle">Combining XuNet, SRNet, YeNet, YedroudjNet & ZhuNet best practices with Inception-style Attention</p>
+        
+        <div class="network-flow">
+            <!-- Input -->
+            <div class="stage">
+                <div class="stage-label">📥 Input</div>
+                <div class="blocks">
+                    <div class="block preprocessing">
+                        <div class="block-title">RGB Image</div>
+                        <div class="block-detail">3×256×256</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Preprocessing Stage -->
+            <div class="stage">
+                <div class="stage-label">🔬 Preprocessing</div>
+                <div class="blocks">
+                    <div class="block preprocessing">
+                        <div class="block-title">30 SRM Filters</div>
+                        <div class="block-detail">5×5 Conv (Frozen)</div>
+                        <div class="feature-map">→ 30×256×256</div>
+                    </div>
+                    <div class="block preprocessing">
+                        <div class="block-title">TLU</div>
+                        <div class="block-detail">Clamp [-3, 3]</div>
+                    </div>
+                    <div class="block preprocessing">
+                        <div class="block-title">ABS</div>
+                        <div class="block-detail">|x|</div>
+                    </div>
+                    <div class="block conv">
+                        <div class="block-title">Conv 3×3</div>
+                        <div class="block-detail">30→64</div>
+                        <div class="feature-map">→ 64×256×256</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Stage 1 -->
+            <div class="stage">
+                <div class="stage-label">🎯 Stage 1</div>
+                <div class="blocks">
+                    <div class="block conv">
+                        <div class="block-title">Conv 3×3</div>
+                        <div class="block-detail">64→64 + BN + ReLU</div>
+                    </div>
+                    <div class="block residual">
+                        <div class="block-title">Residual Block</div>
+                        <div class="block-detail">64 channels</div>
+                    </div>
+                    <div class="block pool">
+                        <div class="block-title">MaxPool 2×2</div>
+                        <div class="block-detail">64×256×256</div>
+                        <div class="feature-map">→ 64×128×128</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Stage 2 -->
+            <div class="stage">
+                <div class="stage-label">🎯 Stage 2</div>
+                <div class="blocks">
+                    <div class="block conv">
+                        <div class="block-title">Conv 3×3</div>
+                        <div class="block-detail">64→128 + BN + ReLU</div>
+                    </div>
+                    <div class="block residual">
+                        <div class="block-title">Residual Block</div>
+                        <div class="block-detail">128 channels (×2)</div>
+                    </div>
+                    <div class="block pool">
+                        <div class="block-title">MaxPool 2×2</div>
+                        <div class="block-detail">128×128×128</div>
+                        <div class="feature-map">→ 128×64×64</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Stage 3 -->
+            <div class="stage">
+                <div class="stage-label">🎯 Stage 3</div>
+                <div class="blocks">
+                    <div class="block conv">
+                        <div class="block-title">SepConv 3×3</div>
+                        <div class="block-detail">128→256 + BN + ReLU</div>
+                    </div>
+                    <div class="block residual">
+                        <div class="block-title">Residual Block</div>
+                        <div class="block-detail">256 channels (×3)</div>
+                    </div>
+                    <div class="block pool">
+                        <div class="block-title">MaxPool 2×2</div>
+                        <div class="block-detail">256×64×64</div>
+                        <div class="feature-map">→ 256×32×32</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Stage 4 -->
+            <div class="stage">
+                <div class="stage-label">🎯 Stage 4</div>
+                <div class="blocks">
+                    <div class="block conv">
+                        <div class="block-title">SepConv 3×3</div>
+                        <div class="block-detail">256→512 + BN + ReLU</div>
+                    </div>
+                    <div class="block residual">
+                        <div class="block-title">Residual Block</div>
+                        <div class="block-detail">512 channels (×2)</div>
+                    </div>
+                    <div class="block pool">
+                        <div class="block-title">MaxPool 2×2</div>
+                        <div class="block-detail">512×32×32</div>
+                        <div class="feature-map">→ 512×16×16</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Inception Attention -->
+            <div class="stage" style="border-left-color: #383d99; border-left-width: 8px;">
+                <div class="stage-label">⭐ Inception Attention</div>
+                <div class="blocks">
+                    <div class="block inception">
+                        <div class="block-title">4-Branch Attention</div>
+                        <div class="block-detail">512→512 channels</div>
+                        <div class="feature-map">512×16×16</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Inception Detail -->
+            <div class="inception-detail">
+                <div class="inception-branch">
+                    <h4>🔷 Branch 1: SE Block</h4>
+                    <ul>
+                        <li>Conv 1×1 (512→128)</li>
+                        <li>BatchNorm + ReLU</li>
+                        <li>Squeeze-Excitation</li>
+                        <li>Channel attention</li>
+                    </ul>
+                </div>
+                
+                <div class="inception-branch">
+                    <h4>🔶 Branch 2: CBAM</h4>
+                    <ul>
+                        <li>Conv 3×3 (512→128)</li>
+                        <li>BatchNorm + ReLU</li>
+                        <li>Channel Attention</li>
+                        <li>Spatial Attention</li>
+                    </ul>
+                </div>
+                
+                <div class="inception-branch">
+                    <h4>🔹 Branch 3: GC Block</h4>
+                    <ul>
+                        <li>Conv 5×5 (512→128)</li>
+                        <li>BatchNorm + ReLU</li>
+                        <li>Global Context</li>
+                        <li>Context modeling</li>
+                    </ul>
+                </div>
+                
+                <div class="inception-branch">
+                    <h4>🔸 Branch 4: Triplet Attention</h4>
+                    <ul>
+                        <li>Conv 3×3 (512→128)</li>
+                        <li>BatchNorm + ReLU</li>
+                        <li>C-W, H-C, H-W attention</li>
+                        <li>Multi-dimensional focus</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Final Refinement -->
+            <div class="stage">
+                <div class="stage-label">🎨 Final Refinement</div>
+                <div class="blocks">
+                    <div class="block conv">
+                        <div class="block-title">Conv 3×3</div>
+                        <div class="block-detail">512→512 + BN + ReLU</div>
+                    </div>
+                    <div class="block residual">
+                        <div class="block-title">Residual Block</div>
+                        <div class="block-detail">512 channels</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Classification -->
+            <div class="stage">
+                <div class="stage-label">🎓 Classification</div>
+                <div class="blocks">
+                    <div class="block classifier">
+                        <div class="block-title">Global AvgPool</div>
+                        <div class="block-detail">512×16×16</div>
+                        <div class="feature-map">→ 512×1×1</div>
+                    </div>
+                    <div class="block classifier">
+                        <div class="block-title">Dropout (0.5)</div>
+                        <div class="block-detail">Regularization</div>
+                    </div>
+                    <div class="block classifier">
+                        <div class="block-title">FC 512→256</div>
+                        <div class="block-detail">BN + ReLU</div>
+                    </div>
+                    <div class="block classifier">
+                        <div class="block-title">Dropout (0.3)</div>
+                        <div class="block-detail">Regularization</div>
+                    </div>
+                    <div class="block classifier">
+                        <div class="block-title">FC 256→2</div>
+                        <div class="block-detail">Cover/Stego</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Output -->
+            <div class="stage">
+                <div class="stage-label">📤 Output</div>
+                <div class="blocks">
+                    <div class="block classifier">
+                        <div class="block-title">Logits</div>
+                        <div class="block-detail">2 classes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color preprocessing"></div>
+                <span>Preprocessing</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color conv"></div>
+                <span>Convolution</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color residual"></div>
+                <span>Residual Block</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color pool"></div>
+                <span>Pooling</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color inception"></div>
+                <span>Inception Attention</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color classifier"></div>
+                <span>Classification</span>
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">~2.5M</div>
+                <div class="stat-label">Trainable Parameters</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">30</div>
+                <div class="stat-label">Frozen SRM Filters</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Attention Mechanisms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">11</div>
+                <div class="stat-label">Residual Blocks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Feature Stages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">256→16</div>
+                <div class="stat-label">Spatial Reduction</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
