@@ -10,4 +10,5 @@ unzip GBRASNET.zip -d GBRASNET
 rm GBRASNET.zip
 cd ..
 
+python3 prepare_custom_dataset.py
 python3 train.py
