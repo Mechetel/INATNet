@@ -18,7 +18,7 @@ class SEBlock(nn.Module):
             nn.Linear(channels // reduction, channels, bias=False),
             nn.Sigmoid()
         )
-    
+
     def forward(self, x):
         b, c, _, _ = x.size()
         y = self.squeeze(x).view(b, c)
@@ -38,7 +38,7 @@ class ChannelAttention(nn.Module):
             nn.Conv2d(channels // reduction, channels, 1, bias=False)
         )
         self.sigmoid = nn.Sigmoid()
-    
+
     def forward(self, x):
         avg_out = self.fc(self.avg_pool(x))
         max_out = self.fc(self.max_pool(x))
@@ -51,7 +51,7 @@ class SpatialAttention(nn.Module):
         super(SpatialAttention, self).__init__()
         self.conv = nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2, bias=False)
         self.sigmoid = nn.Sigmoid()
-    
+
     def forward(self, x):
         avg_out = torch.mean(x, dim=1, keepdim=True)
         max_out, _ = torch.max(x, dim=1, keepdim=True)
@@ -65,7 +65,7 @@ class CBAMBlock(nn.Module):
         super(CBAMBlock, self).__init__()
         self.channel_att = ChannelAttention(channels, reduction)
         self.spatial_att = SpatialAttention(kernel_size)
-    
+
     def forward(self, x):
         x = x * self.channel_att(x)
         x = x * self.spatial_att(x)
@@ -84,7 +84,7 @@ class GCBlock(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(channels // reduction, channels, kernel_size=1)
         )
-    
+
     def forward(self, x):
         b, c, h, w = x.size()
         mask = self.conv_mask(x).view(b, 1, h * w)
@@ -111,29 +111,29 @@ class TripletAttention(nn.Module):
             nn.BatchNorm2d(1)
         )
         self.sigmoid = nn.Sigmoid()
-    
+
     def forward(self, x):
         b, c, h, w = x.size()
-        
+
         # C-W attention
         x_perm1 = x.permute(0, 2, 1, 3).contiguous()
         x_avg1 = torch.mean(x_perm1, dim=1, keepdim=True)
         x_max1, _ = torch.max(x_perm1, dim=1, keepdim=True)
         att1 = self.sigmoid(self.cw(torch.cat([x_avg1, x_max1], dim=1)))
         att1 = att1.permute(0, 2, 1, 3).contiguous()
-        
+
         # H-C attention
         x_perm2 = x.permute(0, 3, 2, 1).contiguous()
         x_avg2 = torch.mean(x_perm2, dim=1, keepdim=True)
         x_max2, _ = torch.max(x_perm2, dim=1, keepdim=True)
         att2 = self.sigmoid(self.hc(torch.cat([x_avg2, x_max2], dim=1)))
         att2 = att2.permute(0, 3, 2, 1).contiguous()
-        
+
         # H-W attention
         x_avg3 = torch.mean(x, dim=1, keepdim=True)
         x_max3, _ = torch.max(x, dim=1, keepdim=True)
         att3 = self.sigmoid(self.hw(torch.cat([x_avg3, x_max3], dim=1)))
-        
+
         return (x * att1 + x * att2 + x * att3) / 3.0
 
 
@@ -141,9 +141,9 @@ class InceptionAttentionBlock(nn.Module):
     """Inception-style block with all four attention mechanisms"""
     def __init__(self, in_channels, out_channels, reduction=16):
         super(InceptionAttentionBlock, self).__init__()
-        
+
         branch_channels = out_channels // 4
-        
+
         # Branch 1: SE Block with 1x1 conv
         self.branch1 = nn.Sequential(
             nn.Conv2d(in_channels, branch_channels, 1, bias=False),
@@ -151,7 +151,7 @@ class InceptionAttentionBlock(nn.Module):
             nn.ReLU(inplace=True),
             SEBlock(branch_channels, reduction)
         )
-        
+
         # Branch 2: CBAM with 3x3 conv
         self.branch2 = nn.Sequential(
             nn.Conv2d(in_channels, branch_channels, 3, padding=1, bias=False),
@@ -159,7 +159,7 @@ class InceptionAttentionBlock(nn.Module):
             nn.ReLU(inplace=True),
             CBAMBlock(branch_channels, reduction)
         )
-        
+
         # Branch 3: GC Block with 5x5 conv
         self.branch3 = nn.Sequential(
             nn.Conv2d(in_channels, branch_channels, 5, padding=2, bias=False),
@@ -167,7 +167,7 @@ class InceptionAttentionBlock(nn.Module):
             nn.ReLU(inplace=True),
             GCBlock(branch_channels, reduction)
         )
-        
+
         # Branch 4: Triplet Attention with 3x3 conv
         self.branch4 = nn.Sequential(
             nn.Conv2d(in_channels, branch_channels, 3, padding=1, bias=False),
@@ -175,14 +175,14 @@ class InceptionAttentionBlock(nn.Module):
             nn.ReLU(inplace=True),
             TripletAttention()
         )
-        
+
         # Fusion
         self.fusion = nn.Sequential(
             nn.Conv2d(out_channels, out_channels, 1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
-    
+
     def forward(self, x):
         b1 = self.branch1(x)
         b2 = self.branch2(x)
@@ -198,10 +198,10 @@ class SeparableConv2d(nn.Module):
     """Depthwise Separable Convolution for efficiency"""
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False):
         super(SeparableConv2d, self).__init__()
-        self.depthwise = nn.Conv2d(in_channels, in_channels, kernel_size, stride, padding, 
+        self.depthwise = nn.Conv2d(in_channels, in_channels, kernel_size, stride, padding,
                                    groups=in_channels, bias=bias)
         self.pointwise = nn.Conv2d(in_channels, out_channels, 1, bias=bias)
-    
+
     def forward(self, x):
         return self.pointwise(self.depthwise(x))
 
@@ -216,11 +216,11 @@ class ResidualBlock(nn.Module):
         else:
             self.conv1 = nn.Conv2d(channels, channels, 3, 1, 1, bias=False)
             self.conv2 = nn.Conv2d(channels, channels, 3, 1, 1, bias=False)
-        
+
         self.bn1 = nn.BatchNorm2d(channels)
         self.bn2 = nn.BatchNorm2d(channels)
         self.relu = nn.ReLU(inplace=True)
-    
+
     def forward(self, x):
         residual = x
         out = self.relu(self.bn1(self.conv1(x)))
@@ -241,7 +241,7 @@ class INATNet(nn.Module):
     """
     def __init__(self, num_classes=2):
         super(INATNet, self).__init__()
-        
+
         # ===== PREPROCESSING STAGE (XuNet/YeNet inspired) =====
         # Initialize with 30 SRM high-pass filters
         self.srm_conv = nn.Conv2d(3, 30, kernel_size=5, padding=2, bias=False)
@@ -249,14 +249,14 @@ class INATNet(nn.Module):
         # Freeze SRM filters (common practice)
         for param in self.srm_conv.parameters():
             param.requires_grad = False
-        
+
         # TLU (Truncated Linear Unit) - clips values to [-T, T]
         self.tlu_threshold = 3.0
-        
+
         # Additional learnable preprocessing
         self.prep_conv = nn.Conv2d(30, 64, kernel_size=3, padding=1, bias=False)
         self.prep_bn = nn.BatchNorm2d(64)
-        
+
         # ===== FEATURE EXTRACTION STAGE =====
         # Stage 1: Initial feature extraction
         self.stage1 = nn.Sequential(
@@ -266,7 +266,7 @@ class INATNet(nn.Module):
             ResidualBlock(64),
             nn.MaxPool2d(2, 2)  # 256 -> 128
         )
-        
+
         # Stage 2: Increase channels
         self.stage2_conv = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, padding=1, bias=False),
@@ -278,7 +278,7 @@ class INATNet(nn.Module):
             ResidualBlock(128)
         )
         self.pool2 = nn.MaxPool2d(2, 2)  # 128 -> 64
-        
+
         # Stage 3: Deep features with separable convolutions
         self.stage3_conv = nn.Sequential(
             SeparableConv2d(128, 256, 3, 1, 1),
@@ -291,7 +291,7 @@ class INATNet(nn.Module):
             ResidualBlock(256, use_separable=True)
         )
         self.pool3 = nn.MaxPool2d(2, 2)  # 64 -> 32
-        
+
         # Stage 4: High-level features
         self.stage4_conv = nn.Sequential(
             SeparableConv2d(256, 512, 3, 1, 1),
@@ -303,10 +303,10 @@ class INATNet(nn.Module):
             ResidualBlock(512, use_separable=True)
         )
         self.pool4 = nn.MaxPool2d(2, 2)  # 32 -> 16
-        
+
         # ===== INCEPTION ATTENTION BLOCK (near the end for best performance) =====
         self.inception_attention = InceptionAttentionBlock(512, 512, reduction=16)
-        
+
         # Final feature refinement
         self.final_conv = nn.Sequential(
             nn.Conv2d(512, 512, kernel_size=3, padding=1, bias=False),
@@ -314,7 +314,7 @@ class INATNet(nn.Module):
             nn.ReLU(inplace=True),
             ResidualBlock(512)
         )
-        
+
         # ===== CLASSIFICATION STAGE =====
         self.global_pool = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Sequential(
@@ -325,10 +325,10 @@ class INATNet(nn.Module):
             nn.Dropout(0.3),
             nn.Linear(256, num_classes)
         )
-        
+
         # Initialize weights
         self._init_weights()
-    
+
     def _init_srm_filters(self):
         """Initialize SRM filters"""
         srm_kernels = get_srm_kernels()
@@ -342,9 +342,9 @@ class INATNet(nn.Module):
             # Apply same kernel to all color channels
             for c in range(3):
                 weight[i, c, :, :] = kernel
-        
+
         self.srm_conv.weight.data = torch.from_numpy(weight)
-    
+
     def _init_weights(self):
         """Initialize network weights"""
         for m in self.modules():
@@ -357,45 +357,45 @@ class INATNet(nn.Module):
                 nn.init.kaiming_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-    
+
     def forward(self, x):
         # Preprocessing with SRM filters
         x = self.srm_conv(x)
-        
+
         # TLU (Truncated Linear Unit) - helps with convergence
         x = torch.clamp(x, -self.tlu_threshold, self.tlu_threshold)
-        
+
         # Absolute value layer (common in steganalysis)
         x = torch.abs(x)
-        
+
         # Learnable preprocessing
         x = self.prep_bn(self.prep_conv(x))
         x = F.relu(x)
-        
+
         # Feature extraction stages
         x = self.stage1(x)
-        
+
         x = self.stage2_conv(x)
         x = self.stage2_res(x)
         x = self.pool2(x)
-        
+
         x = self.stage3_conv(x)
         x = self.stage3_res(x)
         x = self.pool3(x)
-        
+
         x = self.stage4_conv(x)
         x = self.stage4_res(x)
         x = self.pool4(x)
-        
+
         # Inception attention block (near the end for best performance)
         x = self.inception_attention(x)
-        
+
         # Final refinement
         x = self.final_conv(x)
-        
+
         # Classification
         x = self.global_pool(x)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
-        
+
         return x

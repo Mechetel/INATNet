@@ -5,9 +5,10 @@ from PIL import Image
 from tqdm import tqdm
 
 # === CONFIG SERVER ===
-BASE_DIR = Path("~/INATNet/data")
+BASE_DIR = Path("~/INATNet/data").expanduser()
+# BASE_DIR = Path("/Users/dmitryhoma/Projects/phd_dissertation/state_3/INATNet/data").expanduser()
 SRC_DIR = BASE_DIR / "GBRASNET"
-DEST_DIR = BASE_DIR / "custom_big"
+DEST_DIR = BASE_DIR / "custom_big_png"
 
 # dataset sizes
 split_sizes = {

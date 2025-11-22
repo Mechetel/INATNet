@@ -6,7 +6,7 @@ pip3 install imageio tqdm reedsolo
 
 cd data
 curl -L -o GBRASNET.zip https://www.kaggle.com/api/v1/datasets/download/zapak1010/bossbase-bows2
-unzip GBRASNET.zip -d GBRASNET
+unzip GBRASNET.zip -d .
 rm GBRASNET.zip
 cd ..
 

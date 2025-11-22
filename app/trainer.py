@@ -42,7 +42,7 @@ class Trainer:
         self.criterion = nn.CrossEntropyLoss()
         
         # Setup mixed precision
-        self.scaler = torch.cuda.amp.GradScaler() if config.mixed_precision and config.device == "cuda" else None
+        self.scaler = torch.amp.GradScaler() if config.mixed_precision and config.device == "cuda" else None
         
         # Setup callbacks
         self.callbacks = []
@@ -142,7 +142,7 @@ class Trainer:
             
             # Forward pass with mixed precision
             if self.scaler:
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast():
                     outputs = self.model(images)
                     loss = self.criterion(outputs, labels)
                 
