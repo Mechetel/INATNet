@@ -14,12 +14,6 @@ class SteganalysisDataset(Dataset):
     Label 1: Stego images (images with hidden data)
     """
     def __init__(self, cover_dir, stego_dir, transform=None):
-        """
-        Args:
-            cover_dir: Path to directory containing cover images
-            stego_dir: Path to directory containing stego images
-            transform: Optional transform to be applied on images
-        """
         self.cover_dir = os.path.expanduser(cover_dir)
         self.stego_dir = os.path.expanduser(stego_dir)
         self.transform = transform
@@ -28,8 +22,8 @@ class SteganalysisDataset(Dataset):
 
         # Load Cover images (label 0)
         if os.path.exists(self.cover_dir):
-            cover_files = [f for f in os.listdir(self.cover_dir)
-                          if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pgm'))]
+            cover_files = sorted([f for f in os.listdir(self.cover_dir)
+                          if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pgm'))])
             for img_name in cover_files:
                 self.images.append(os.path.join(self.cover_dir, img_name))
                 self.labels.append(0)
@@ -39,8 +33,8 @@ class SteganalysisDataset(Dataset):
 
         # Load Stego images (label 1)
         if os.path.exists(self.stego_dir):
-            stego_files = [f for f in os.listdir(self.stego_dir)
-                          if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pgm'))]
+            stego_files = sorted([f for f in os.listdir(self.stego_dir)
+                          if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pgm'))])
             for img_name in stego_files:
                 self.images.append(os.path.join(self.stego_dir, img_name))
                 self.labels.append(1)
@@ -55,21 +49,33 @@ class SteganalysisDataset(Dataset):
         img_path = self.images[idx]
 
         try:
-            # Load image
-            image = Image.open(img_path).convert('RGB')
+            # Load image WITHOUT converting to RGB first
+            image = Image.open(img_path)
+            
+            # CRITICAL: Keep as grayscale if it's grayscale
+            # This preserves the subtle steganographic changes
+            if image.mode != 'RGB':
+                image = image.convert('L')  # Ensure it's grayscale
+                # Convert to RGB by replicating channel AFTER transforms
+            
             label = self.labels[idx]
 
             if self.transform:
                 image = self.transform(image)
+                
+                # If image is still 1 channel after transform, replicate to 3
+                if image.shape[0] == 1:
+                    image = image.repeat(3, 1, 1)
 
             return image, torch.tensor(label, dtype=torch.float32)
 
         except Exception as e:
             print(f"Error loading image {img_path}: {e}")
-            # Return a blank image if there's an error
             if self.transform:
-                blank_img = Image.new('RGB', (256, 256), color=(0, 0, 0))
+                blank_img = Image.new('L', (256, 256), color=128)
                 image = self.transform(blank_img)
+                if image.shape[0] == 1:
+                    image = image.repeat(3, 1, 1)
             else:
                 image = torch.zeros(3, 256, 256)
             return image, torch.tensor(0.0, dtype=torch.float32)
@@ -78,52 +84,36 @@ class SteganalysisDataset(Dataset):
 def get_transforms(img_size=256, augment=True):
     """
     Get data transforms for training and validation
-
-    Args:
-        img_size: Target image size (default: 256)
-        augment: Whether to apply data augmentation (default: True)
-
-    Returns:
-        train_transform, val_transform: Transform pipelines
+    CRITICAL: No aggressive augmentation for steganalysis!
+    Augmentation can destroy the steganographic signal.
     """
     if augment:
         train_transform = transforms.Compose([
-            transforms.Resize((img_size, img_size)),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(15),
-            transforms.ToTensor()
+            transforms.Resize((img_size, img_size), interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.RandomHorizontalFlip(p=0.5),  # OK for steganalysis
+            # NO rotation, color jitter, or other transforms!
+            transforms.ToTensor(),
         ])
     else:
         train_transform = transforms.Compose([
-            transforms.Resize((img_size, img_size)),
-            transforms.ToTensor()
+            transforms.Resize((img_size, img_size), interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.ToTensor(),
         ])
 
     val_transform = transforms.Compose([
-        transforms.Resize((img_size, img_size)),
-        transforms.ToTensor()
+        transforms.Resize((img_size, img_size), interpolation=transforms.InterpolationMode.BILINEAR),
+        transforms.ToTensor(),
     ])
 
     return train_transform, val_transform
 
 
 def get_data_loaders(cover_train_dir, stego_train_dir, cover_val_dir, stego_val_dir,
-                     batch_size=32, img_size=256, augment=True, num_workers=4):
+                     batch_size=32, img_size=256, augment=False, num_workers=4):
     """
     Create data loaders for training and validation
-
-    Args:
-        cover_train_dir: Path to training cover images
-        stego_train_dir: Path to training stego images
-        cover_val_dir: Path to validation cover images
-        stego_val_dir: Path to validation stego images
-        batch_size: Batch size (default: 32)
-        img_size: Image size (default: 256)
-        augment: Whether to apply augmentation (default: True)
-        num_workers: Number of data loading workers (default: 4)
-
-    Returns:
-        train_loader, val_loader: DataLoader objects
+    
+    Note: augment=False by default for steganalysis!
     """
     train_transform, val_transform = get_transforms(img_size, augment)
 
@@ -157,19 +147,7 @@ def get_data_loaders(cover_train_dir, stego_train_dir, cover_val_dir, stego_val_
 
 def get_test_loader(cover_test_dir, stego_test_dir, batch_size=32,
                     img_size=256, num_workers=4):
-    """
-    Create data loader for testing
-
-    Args:
-        cover_test_dir: Path to test cover images
-        stego_test_dir: Path to test stego images
-        batch_size: Batch size (default: 32)
-        img_size: Image size (default: 256)
-        num_workers: Number of data loading workers (default: 4)
-
-    Returns:
-        test_loader: DataLoader object
-    """
+    """Create data loader for testing"""
     _, test_transform = get_transforms(img_size, augment=False)
 
     test_dataset = SteganalysisDataset(cover_test_dir, stego_test_dir,
@@ -186,16 +164,7 @@ def get_test_loader(cover_test_dir, stego_test_dir, batch_size=32,
 
 
 def calculate_metrics(y_true, y_pred):
-    """
-    Calculate classification metrics
-
-    Args:
-        y_true: True labels
-        y_pred: Predicted labels
-
-    Returns:
-        dict: Dictionary containing accuracy, precision, recall, and F1 score
-    """
+    """Calculate classification metrics"""
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
 
@@ -213,16 +182,7 @@ def calculate_metrics(y_true, y_pred):
 
 
 def save_checkpoint(model, optimizer, epoch, loss, filepath):
-    """
-    Save model checkpoint
-
-    Args:
-        model: PyTorch model
-        optimizer: Optimizer
-        epoch: Current epoch
-        loss: Current loss
-        filepath: Path to save checkpoint
-    """
+    """Save model checkpoint"""
     checkpoint = {
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
@@ -234,18 +194,7 @@ def save_checkpoint(model, optimizer, epoch, loss, filepath):
 
 
 def load_checkpoint(model, optimizer, filepath, device):
-    """
-    Load model checkpoint
-
-    Args:
-        model: PyTorch model
-        optimizer: Optimizer
-        filepath: Path to checkpoint file
-        device: Device to load model to
-
-    Returns:
-        epoch, loss: Loaded epoch and loss
-    """
+    """Load model checkpoint"""
     checkpoint = torch.load(filepath, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     if optimizer is not None:
@@ -254,28 +203,3 @@ def load_checkpoint(model, optimizer, filepath, device):
     loss = checkpoint['loss']
     print(f"Checkpoint loaded from {filepath} (Epoch {epoch}, Loss: {loss:.4f})")
     return epoch, loss
-
-
-if __name__ == '__main__':
-    # Test dataset loading
-    print("Testing SteganalysisDataset...")
-    print("="*70)
-
-    cover_dir = '/Users/dmitryhoma/Projects/datasets/ready_to_use/GBRASNET/BOWS2/cover/train'
-    stego_dir = '/Users/dmitryhoma/Projects/datasets/ready_to_use/GBRASNET/BOWS2/stego/WOW/0.2bpp/train'
-
-    if os.path.exists(cover_dir) and os.path.exists(stego_dir):
-        dataset = SteganalysisDataset(cover_dir, stego_dir)
-        print(f"\nDataset size: {len(dataset)}")
-
-        # Test loading a few samples
-        print("\nTesting sample loading...")
-        for i in range(min(3, len(dataset))):
-            img, label = dataset[i]
-            print(f"Sample {i}: Label={int(label)} ({'Cover' if label == 0 else 'Stego'})")
-
-        print("\n" + "="*70)
-        print("Dataset test successful!")
-    else:
-        print(f"Data directories not found")
-        print("Please check the dataset paths.")
