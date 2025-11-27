@@ -6,3 +6,4 @@
 
 .DS_Store
 __pycache__
+v3/checkpoints_steganalysis/SRNet_model_weights.pt
