@@ -1,0 +1,24 @@
+======================================================================
+Steganalysis Classification Test Results
+======================================================================
+
+Model: srnet
+Model path: ./checkpoints_steganalysis/SRNet_model_weights.pt
+Cover test path: /Users/dmitryhoma/Projects/datasets/ready_to_use/GBRASNET/BOWS2/cover/test
+Stego test path: /Users/dmitryhoma/Projects/datasets/ready_to_use/GBRASNET/BOWS2/stego/WOW/0.2bpp/test
+
+Test samples: 2000
+
+Accuracy:  0.5000 (50.00%)
+Precision: 0.0000
+Recall:    0.0000
+F1 Score:  0.0000
+AUC:       0.5003 (50.03%)
+
+Optimal Threshold: 0.0000
+Accuracy at optimal threshold: 0.5030
+
+Confusion Matrix:
+                Predicted Cover    Predicted Stego
+True Cover                 1000                  0
+True Stego                 1000                  0

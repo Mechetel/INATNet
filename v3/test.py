@@ -11,9 +11,7 @@ from utils import get_test_loader, calculate_metrics
 
 
 def test_model(args):
-    """
-    Test the model and generate ROC curve and AUC
-    """
+    """Test the model and generate ROC curve and AUC"""
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -37,11 +35,7 @@ def test_model(args):
 
     # Load model
     print(f"\nLoading model from {args.model_path}...")
-    model = get_model(
-        model_name=args.model,
-        pretrained=False,
-        freeze_backbone=False
-    ).to(device)
+    model = get_model(model_name=args.model, pretrained_path=args.model_path).to(device)
 
     checkpoint = torch.load(args.model_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -60,16 +54,20 @@ def test_model(args):
         for images, labels in tqdm(test_loader, desc='Testing'):
             images, labels = images.to(device), labels.to(device)
 
-            # Forward pass
-            outputs = model(images).squeeze()
+            # Forward pass - outputs are logits [batch_size, 2]
+            outputs = model(images)
 
-            # Get predictions and probabilities
-            probs = outputs
-            preds = (probs > 0.5).float()
+            # Get probabilities (softmax over 2 classes)
+            probs = torch.softmax(outputs, dim=1)[:, 1]  # Probability of stego (class 1)
+
+            # Get predictions (0 or 1)
+            preds = torch.argmax(outputs, dim=1).float()
 
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
             all_probs.extend(probs.cpu().numpy())
+
+    # Rest of the function stays the same...
 
     # Convert to numpy arrays
     all_preds = np.array(all_preds)
@@ -244,14 +242,14 @@ if __name__ == '__main__':
     parser.add_argument(
         "--model",
         type=str,
-        default="resnet50",
-        choices=["simple", "resnet50", "efficientnet"],
+        default="srnet",
+        choices=["srnet", "srnet_attention", "inatnet_v3"],
         help="Model architecture to use"
     )
     parser.add_argument(
         "--model_path",
         type=str,
-        default="./checkpoints_steganalysis/best_model_resnet50.pth",
+        default="./checkpoints_steganalysis/SRNet_model_weights.pt",
         help="Path to trained model checkpoint"
     )
 

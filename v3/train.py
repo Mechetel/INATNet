@@ -20,26 +20,24 @@ def train_one_epoch(model, train_loader, criterion, optimizer, device, epoch):
     for batch_idx, (images, labels) in enumerate(pbar):
         images, labels = images.to(device), labels.to(device)
 
-        # Zero the parameter gradients
         optimizer.zero_grad()
 
-        # Forward pass
-        outputs = model(images).squeeze()
-        loss = criterion(outputs, labels)
+        # Forward pass - outputs are logits [batch_size, 2]
+        outputs = model(images)
 
-        # Backward pass and optimize
+        # Convert labels to long for CrossEntropyLoss
+        loss = criterion(outputs, labels.long())
+
         loss.backward()
         optimizer.step()
 
-        # Statistics
         running_loss += loss.item() * images.size(0)
 
         # Get predictions
-        preds = (outputs > 0.5).float()
+        preds = torch.argmax(outputs, dim=1).float()
         all_preds.extend(preds.cpu().numpy())
         all_labels.extend(labels.cpu().numpy())
 
-        # Update progress bar
         pbar.set_postfix({
             'loss': f'{loss.item():.4f}',
             'acc': f'{(preds == labels).float().mean().item():.4f}'
@@ -64,15 +62,14 @@ def validate(model, val_loader, criterion, device):
             images, labels = images.to(device), labels.to(device)
 
             # Forward pass
-            outputs = model(images).squeeze()
-            loss = criterion(outputs, labels)
+            outputs = model(images)
+            loss = criterion(outputs, labels.long())
 
-            # Statistics
             running_loss += loss.item() * images.size(0)
 
             # Get predictions and probabilities
-            probs = outputs
-            preds = (probs > 0.5).float()
+            probs = torch.softmax(outputs, dim=1)[:, 1]
+            preds = torch.argmax(outputs, dim=1).float()
 
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
@@ -135,7 +132,7 @@ def train(args):
     print(f"Trainable parameters: {trainable_params:,}")
 
     # Loss function and optimizer
-    criterion = nn.BCELoss()  # Model already has sigmoid
+    criterion = nn.CrossEntropyLoss()  # Model already has sigmoid
     optimizer = optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=args.lr,

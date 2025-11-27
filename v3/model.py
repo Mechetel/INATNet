@@ -377,10 +377,6 @@ class InceptionAttentionBlock(nn.Module):
 # ==================== Enhanced SRNet with Attention ====================
 
 class SRNetWithAttention(nn.Module):
-    """
-    SRNet with SE and CBAM attention modules inserted at key feature extraction stages.
-    Uses pretrained SRNet weights and adds attention for better feature refinement.
-    """
     def __init__(self, pretrained_path='SRNet_model_weights.pt', freeze_backbone=False):
         super(SRNetWithAttention, self).__init__()
 
@@ -388,8 +384,19 @@ class SRNetWithAttention(nn.Module):
         srnet = Srnet()
         if pretrained_path:
             print(f"Loading pretrained SRNet from {pretrained_path}")
-            srnet.load_state_dict(torch.load(pretrained_path, map_location='cpu'))
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+            # Load checkpoint
+            checkpoint = torch.load(pretrained_path, map_location=device)
+
+            # Handle different checkpoint formats
+            if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                srnet.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                srnet.load_state_dict(checkpoint)
+
             print("✓ Pretrained weights loaded successfully")
+
 
         # Copy layers from pretrained SRNet
         # Early layers (1-2)
@@ -587,15 +594,26 @@ class SRNetWithAttention(nn.Module):
 
 
 class INATNet_v3(nn.Module):
-    """Placeholder for INATNet_v3 model"""
     def __init__(self, pretrained_path='SRNet_model_weights.pt', freeze_backbone=False):
         super(INATNet_v3, self).__init__()
+
         # Load pretrained SRNet
         srnet = Srnet()
         if pretrained_path:
             print(f"Loading pretrained SRNet from {pretrained_path}")
-            srnet.load_state_dict(torch.load(pretrained_path, map_location='cpu'))
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+            # Load checkpoint
+            checkpoint = torch.load(pretrained_path, map_location=device)
+
+            # Handle different checkpoint formats
+            if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                srnet.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                srnet.load_state_dict(checkpoint)
+
             print("✓ Pretrained weights loaded successfully")
+
 
         # Copy layers from pretrained SRNet
         # Early layers (1-2)
@@ -785,28 +803,45 @@ class INATNet_v3(nn.Module):
 
 # ==================== Factory Function ====================
 
-def get_model(model_name='srnet', pretrained_path='SRNet_model_weights.pt', freeze_backbone=False):
+# In model.py, update the get_model function:
+
+def get_model(
+    model_name='srnet',
+    pretrained_path='./checkpoints_steganalysis/SRNet_model_weights.pt',
+    freeze_backbone=False
+):
     """
     Factory function to get model
 
     Args:
-        model_name: 'srnet' or 'srnet_attention'
+        model_name: 'srnet', 'srnet_attention', or 'inatnet_v3'
         pretrained_path: Path to pretrained SRNet weights
         freeze_backbone: Whether to freeze SRNet backbone
 
     Returns:
         model: PyTorch model
     """
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
     if model_name == 'srnet':
         model = Srnet()
         if pretrained_path:
-            devise = 'cuda' if torch.cuda.is_available() else 'cpu'
-            model.load_state_dict(torch.load(pretrained_path, map_location=devise))
+            checkpoint = torch.load(pretrained_path, map_location=device)
+
+            # Handle different checkpoint formats
+            if 'model_state_dict' in checkpoint:
+                # Checkpoint contains nested dict
+                model.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                # Checkpoint is direct state dict
+                model.load_state_dict(checkpoint)
+
             print(f"✓ Loaded pretrained SRNet from {pretrained_path}")
         return model
 
     elif model_name == 'srnet_attention':
         return SRNetWithAttention(pretrained_path=pretrained_path, freeze_backbone=freeze_backbone)
+
     elif model_name == 'inatnet_v3':
         return INATNet_v3(pretrained_path=pretrained_path, freeze_backbone=freeze_backbone)
 

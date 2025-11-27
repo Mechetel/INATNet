@@ -19,3 +19,6 @@ python3 train.py --cover_train_path ~/datasets/ready_to_use/GBRASNET/BOWS2/cover
                  --cover_val_path ~/datasets/ready_to_use/GBRASNET/BOWS2/cover/val \
                  --stego_val_path ~/datasets/ready_to_use/GBRASNET/BOWS2/stego/S-UNIWARD/0.2bpp/val
 
+python3 test.py --model_path ./saved_models/your_trained_model.pth \
+                --cover_test_path ~/datasets/ready_to_use/GBRASNET/BOWS2/cover/test \
+                --stego_test_path ~/datasets/ready_to_use/GBRASNET/BOWS2/stego/S-UNIWARD/0.2bpp/test

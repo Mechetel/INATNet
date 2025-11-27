@@ -49,35 +49,35 @@ class SteganalysisDataset(Dataset):
         img_path = self.images[idx]
 
         try:
-            # Load image WITHOUT converting to RGB first
+            # Load image and convert to grayscale
             image = Image.open(img_path)
 
-            # CRITICAL: Keep as grayscale if it's grayscale
-            # This preserves the subtle steganographic changes
-            if image.mode != 'RGB':
-                image = image.convert('L')  # Ensure it's grayscale
-                # Convert to RGB by replicating channel AFTER transforms
+            # Convert to grayscale (SRNet expects 1 channel)
+            if image.mode != 'L':
+                image = image.convert('L')
 
             label = self.labels[idx]
 
             if self.transform:
                 image = self.transform(image)
 
-                # If image is still 1 channel after transform, replicate to 3
-                if image.shape[0] == 1:
-                    image = image.repeat(3, 1, 1)
+            # Ensure it's [1, H, W] for grayscale
+            if image.dim() == 2:
+                image = image.unsqueeze(0)
 
             return image, torch.tensor(label, dtype=torch.float32)
 
         except Exception as e:
             print(f"Error loading image {img_path}: {e}")
+            blank_img = Image.new('L', (512, 512), color=128)
             if self.transform:
-                blank_img = Image.new('L', (256, 256), color=128)
                 image = self.transform(blank_img)
-                if image.shape[0] == 1:
-                    image = image.repeat(3, 1, 1)
             else:
-                image = torch.zeros(3, 256, 256)
+                image = torch.zeros(1, 512, 512)
+
+            if image.dim() == 2:
+                image = image.unsqueeze(0)
+
             return image, torch.tensor(0.0, dtype=torch.float32)
 
 
@@ -85,23 +85,18 @@ def get_transforms(img_size=256, augment=True):
     """
     Get data transforms for training and validation
     CRITICAL: No aggressive augmentation for steganalysis!
-    Augmentation can destroy the steganographic signal.
     """
     if augment:
         train_transform = transforms.Compose([
-            # transforms.Resize((img_size, img_size), interpolation=transforms.InterpolationMode.BILINEAR),
-            # transforms.RandomHorizontalFlip(p=0.5),  # OK for steganalysis
-            # NO rotation, color jitter, or other transforms!
+            transforms.RandomHorizontalFlip(p=0.5),  # Only horizontal flip for stego
             transforms.ToTensor(),
         ])
     else:
         train_transform = transforms.Compose([
-          # transforms.Resize((img_size, img_size), interpolation=transforms.InterpolationMode.BILINEAR),
             transforms.ToTensor(),
         ])
 
     val_transform = transforms.Compose([
-        # transforms.Resize((img_size, img_size), interpolation=transforms.InterpolationMode.BILINEAR),
         transforms.ToTensor(),
     ])
 

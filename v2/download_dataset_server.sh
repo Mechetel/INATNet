@@ -18,4 +18,3 @@ python3 train.py --cover_train_path ~/datasets/ready_to_use/GBRASNET/BOWS2/cover
                  --stego_train_path ~/datasets/ready_to_use/GBRASNET/BOWS2/stego/S-UNIWARD/0.2bpp/train \
                  --cover_val_path ~/datasets/ready_to_use/GBRASNET/BOWS2/cover/val \
                  --stego_val_path ~/datasets/ready_to_use/GBRASNET/BOWS2/stego/S-UNIWARD/0.2bpp/val
-
